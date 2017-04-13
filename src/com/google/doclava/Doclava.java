@@ -72,12 +72,14 @@ public class Doclava {
   public static boolean DEVSITE_STATIC_ONLY = false;
   /* Don't resolve @link refs found in devsite pages */
   public static boolean DEVSITE_IGNORE_JDLINKS = false;
-  /* Remove after updated templates are launched */
-  public static boolean USE_UPDATED_TEMPLATES = false;
   /* Show Preview navigation and process preview docs */
   public static boolean INCLUDE_PREVIEW = false;
   /* output en, es, ja without parent intl/ container */
   public static boolean USE_DEVSITE_LOCALE_OUTPUT_PATHS = false;
+  /* generate navtree.js without other docs */
+  public static boolean NAVTREE_ONLY = false;
+  /* Generate reference navtree.js with all inherited members */
+  public static boolean AT_LINKS_NAVTREE = false;
   public static String outputPathBase = "/";
   public static ArrayList<String> inputPathHtmlDirs = new ArrayList<String>();
   public static ArrayList<String> inputPathHtmlDir2 = new ArrayList<String>();
@@ -182,12 +184,7 @@ public class Doclava {
       if (a[0].equals("-d")) {
         outputPathBase = outputPathHtmlDirs = ClearPage.outputDir = a[1];
       } else if (a[0].equals("-templatedir")) {
-        if (USE_UPDATED_TEMPLATES) {
-          /* remove with updated templates are launched */
-          ClearPage.addTemplateDir("build/tools/droiddoc/templates-sdk-dev");
-        } else {
-          ClearPage.addTemplateDir(a[1]);
-        }
+        ClearPage.addTemplateDir(a[1]);
       } else if (a[0].equals("-hdf")) {
         mHDFData.add(new String[] {a[1], a[2]});
       } else if (a[0].equals("-knowntags")) {
@@ -281,8 +278,6 @@ public class Doclava {
         offlineMode = true;
       } else if (a[0].equals("-metadataDebug")) {
         META_DBG = true;
-      } else if (a[0].equals("-useUpdatedTemplates")) {
-        USE_UPDATED_TEMPLATES = true;
       } else if (a[0].equals("-includePreview")) {
         INCLUDE_PREVIEW = true;
       } else if (a[0].equals("-ignoreJdLinks")) {
@@ -313,11 +308,14 @@ public class Doclava {
       } else if (a[0].equals("-staticonly")) {
         staticOnly = true;
         mHDFData.add(new String[] {"staticonly", "1"});
+      } else if (a[0].equals("-navtreeonly")) {
+        NAVTREE_ONLY = true;
+      } else if (a[0].equals("-atLinksNavtree")) {
+        AT_LINKS_NAVTREE = true;
       } else if (a[0].equals("-devsite")) {
         // Don't copy the doclava assets to devsite output (ie use proj assets only)
         includeDefaultAssets = false;
         USE_DEVSITE_LOCALE_OUTPUT_PATHS = true;
-        USE_UPDATED_TEMPLATES = true;
         mHDFData.add(new String[] {"devsite", "1"});
         if (staticOnly) {
           DEVSITE_STATIC_ONLY = true;
@@ -356,6 +354,16 @@ public class Doclava {
 
       if (!Doclava.readTemplateSettings()) {
         return false;
+      }
+
+      // if requested, only generate the navtree for ds use-case
+      if (NAVTREE_ONLY) {
+        if (AT_LINKS_NAVTREE) {
+          AtLinksNavTree.writeAtLinksNavTree(javadocDir);
+        } else {
+          NavTree.writeNavTree(javadocDir, "");
+        }
+        return true;
       }
 
       // don't do ref doc tasks in devsite static-only builds
@@ -444,12 +452,12 @@ public class Doclava {
           writeSdkValues(sdkValuePath);
         }
       }
-      // Write metadata for all processed files to jd_lists_unified.js in out dir
+      // Write metadata for all processed files to jd_lists_unified in out dir
       if (!sTaglist.isEmpty()) {
-        if (USE_UPDATED_TEMPLATES) {
-          PageMetadata.WriteListByLang(sTaglist);
-        } else {
-          PageMetadata.WriteList(sTaglist);
+        PageMetadata.WriteListByLang(sTaglist);
+        // For devsite (ds) reference only, write samples_metadata to out dir
+        if ((USE_DEVSITE_LOCALE_OUTPUT_PATHS) && (!DEVSITE_STATIC_ONLY)) {
+          PageMetadata.WriteSamplesListByLang(sTaglist);
         }
       }
     }
@@ -738,9 +746,6 @@ public class Doclava {
     if (option.equals("-metadataDebug")) {
       return 1;
     }
-    if (option.equals("-useUpdatedTemplates")) {
-      return 1;
-    }
     if (option.equals("-includePreview")) {
       return 1;
     }
@@ -751,6 +756,12 @@ public class Doclava {
       return 1;
     }
     if (option.equals("-staticonly")) {
+      return 1;
+    }
+    if (option.equals("-navtreeonly")) {
+      return 1;
+    }
+    if (option.equals("-atLinksNavtree")) {
       return 1;
     }
     return 0;
